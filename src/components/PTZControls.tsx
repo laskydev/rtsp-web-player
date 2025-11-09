@@ -60,7 +60,7 @@ export function PTZControls({ cameraId, onvifAddress, username, password }: PTZC
 
       const data = await response.json();
 
-      if (data.success) {
+      if (data.success && data.capabilities) {
         setInitialized(true);
         setCapabilities(data.capabilities);
 
@@ -69,7 +69,7 @@ export function PTZControls({ cameraId, onvifAddress, username, password }: PTZC
           loadPresets();
         }
       } else {
-        console.error('Failed to initialize PTZ:', data.error);
+        console.error('Failed to initialize PTZ:', data.error || 'No capabilities returned');
       }
     } catch (error) {
       console.error('Error initializing PTZ:', error);
