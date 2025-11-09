@@ -25,6 +25,16 @@ class PTZController {
 
       await device.init();
 
+      // Obtener el perfil del dispositivo
+      let profile = null;
+
+      // node-onvif expone los perfiles de manera diferente
+      if (device.current_profile) {
+        profile = device.current_profile;
+      } else if (device.profiles && device.profiles.length > 0) {
+        profile = device.profiles[0];
+      }
+
       // Verificar si el dispositivo tiene capacidades PTZ
       const capabilities = {
         hasPTZ: false,
@@ -34,7 +44,7 @@ class PTZController {
         hasHome: false
       };
 
-      if (device.services && device.services.ptz) {
+      if (device.services && device.services.ptz && profile) {
         capabilities.hasPTZ = true;
         capabilities.canMove = true;
         capabilities.canZoom = true;
@@ -44,13 +54,16 @@ class PTZController {
 
       this.activeDevices.set(cameraId, {
         device,
+        profile,
         capabilities,
         onvifAddress,
         username,
         password
       });
 
-      console.log(`[PTZ] Camera ${cameraId} initialized. Capabilities:`, capabilities);
+      console.log(`[PTZ] Camera ${cameraId} initialized.`);
+      console.log(`[PTZ] Profile:`, profile ? profile.token || profile.name : 'None');
+      console.log(`[PTZ] Capabilities:`, capabilities);
 
       return {
         success: true,
@@ -79,14 +92,13 @@ class PTZController {
         throw new Error('PTZ device not initialized for this camera');
       }
 
-      const { device } = deviceData;
+      const { device, profile } = deviceData;
 
       if (!device.services || !device.services.ptz) {
         throw new Error('Camera does not support PTZ');
       }
 
-      // Obtener el primer perfil con PTZ
-      const profile = device.services.media?.profiles?.[0];
+      // Usar el perfil almacenado durante la inicialización
       if (!profile) {
         throw new Error('No media profile found');
       }
@@ -172,8 +184,7 @@ class PTZController {
         throw new Error('PTZ device not initialized for this camera');
       }
 
-      const { device } = deviceData;
-      const profile = device.services.media?.profiles?.[0];
+      const { device, profile } = deviceData;
 
       if (!profile) {
         throw new Error('No media profile found');
@@ -211,8 +222,11 @@ class PTZController {
         throw new Error('PTZ device not initialized for this camera');
       }
 
-      const { device } = deviceData;
-      const profile = device.services.media?.profiles?.[0];
+      const { device, profile } = deviceData;
+
+      if (!profile) {
+        throw new Error('No media profile found');
+      }
 
       await device.services.ptz.absoluteMove({
         ProfileToken: profile.token,
@@ -246,8 +260,11 @@ class PTZController {
         throw new Error('PTZ device not initialized for this camera');
       }
 
-      const { device } = deviceData;
-      const profile = device.services.media?.profiles?.[0];
+      const { device, profile } = deviceData;
+
+      if (!profile) {
+        throw new Error('No media profile found');
+      }
 
       await device.services.ptz.gotoHomePosition({
         ProfileToken: profile.token
@@ -279,8 +296,11 @@ class PTZController {
         throw new Error('PTZ device not initialized for this camera');
       }
 
-      const { device } = deviceData;
-      const profile = device.services.media?.profiles?.[0];
+      const { device, profile } = deviceData;
+
+      if (!profile) {
+        throw new Error('No media profile found');
+      }
 
       const result = await device.services.ptz.setPreset({
         ProfileToken: profile.token,
@@ -312,8 +332,11 @@ class PTZController {
         throw new Error('PTZ device not initialized for this camera');
       }
 
-      const { device } = deviceData;
-      const profile = device.services.media?.profiles?.[0];
+      const { device, profile } = deviceData;
+
+      if (!profile) {
+        throw new Error('No media profile found');
+      }
 
       await device.services.ptz.gotoPreset({
         ProfileToken: profile.token,
@@ -344,8 +367,11 @@ class PTZController {
         throw new Error('PTZ device not initialized for this camera');
       }
 
-      const { device } = deviceData;
-      const profile = device.services.media?.profiles?.[0];
+      const { device, profile } = deviceData;
+
+      if (!profile) {
+        throw new Error('No media profile found');
+      }
 
       const presets = await device.services.ptz.getPresets({
         ProfileToken: profile.token
@@ -376,8 +402,11 @@ class PTZController {
         throw new Error('PTZ device not initialized for this camera');
       }
 
-      const { device } = deviceData;
-      const profile = device.services.media?.profiles?.[0];
+      const { device, profile } = deviceData;
+
+      if (!profile) {
+        throw new Error('No media profile found');
+      }
 
       const status = await device.services.ptz.getStatus({
         ProfileToken: profile.token
