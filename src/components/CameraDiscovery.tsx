@@ -136,12 +136,16 @@ export default function CameraDiscovery({ onAddCamera, onClose }: CameraDiscover
       const data = await response.json();
 
       if (data.success) {
-        // Agregar al frontend
+        // Agregar al frontend con credenciales para PTZ
         const newCamera: Camera = {
           id: device.id,
           name: device.name,
           url: data.stream.hlsUrl,
-          type: 'hls'
+          type: 'hls',
+          // Incluir credenciales ONVIF para control PTZ
+          onvifAddress: device.onvifAddress,
+          username: deviceCredentials.username,
+          password: deviceCredentials.password
         };
 
         onAddCamera(newCamera);

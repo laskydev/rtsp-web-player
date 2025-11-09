@@ -3,6 +3,10 @@ export interface Camera {
   name: string;
   url: string;
   type: 'rtsp' | 'hls' | 'mjpeg' | 'webrtc';
+  // PTZ credentials (opcional)
+  onvifAddress?: string;
+  username?: string;
+  password?: string;
 }
 
 export interface CameraGridLayout {

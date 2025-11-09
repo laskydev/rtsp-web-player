@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import streamManager from './streamManager.js';
 import cameraDiscovery from './cameraDiscovery.js';
+import ptzController from './ptzController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -325,6 +326,223 @@ app.delete('/api/discovery/clear', (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════
+// 🎮 PTZ CONTROL ENDPOINTS
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * POST /api/ptz/init
+ * Inicializa control PTZ para una cámara
+ * Body: { cameraId, onvifAddress, username, password }
+ */
+app.post('/api/ptz/init', async (req, res) => {
+  try {
+    const { cameraId, onvifAddress, username, password } = req.body;
+
+    if (!cameraId || !onvifAddress || !username || !password) {
+      return res.status(400).json({
+        error: 'Se requieren: cameraId, onvifAddress, username, password'
+      });
+    }
+
+    console.log(`[API] Inicializando PTZ para cámara ${cameraId}`);
+
+    const result = await ptzController.initializePTZ(cameraId, onvifAddress, username, password);
+
+    res.json(result);
+  } catch (error) {
+    console.error('[API] Error al inicializar PTZ:', error);
+    res.status(500).json({
+      error: 'Error al inicializar PTZ',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/ptz/move
+ * Mueve la cámara en una dirección
+ * Body: { cameraId, direction, speed }
+ */
+app.post('/api/ptz/move', async (req, res) => {
+  try {
+    const { cameraId, direction, speed = 0.5 } = req.body;
+
+    if (!cameraId || !direction) {
+      return res.status(400).json({
+        error: 'Se requieren: cameraId, direction'
+      });
+    }
+
+    const result = await ptzController.move(cameraId, direction, speed);
+
+    res.json(result);
+  } catch (error) {
+    console.error('[API] Error al mover cámara:', error);
+    res.status(500).json({
+      error: 'Error al mover cámara',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/ptz/stop
+ * Detiene el movimiento de la cámara
+ * Body: { cameraId }
+ */
+app.post('/api/ptz/stop', async (req, res) => {
+  try {
+    const { cameraId } = req.body;
+
+    if (!cameraId) {
+      return res.status(400).json({
+        error: 'Se requiere: cameraId'
+      });
+    }
+
+    const result = await ptzController.stop(cameraId);
+
+    res.json(result);
+  } catch (error) {
+    console.error('[API] Error al detener cámara:', error);
+    res.status(500).json({
+      error: 'Error al detener cámara',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/ptz/home
+ * Mueve la cámara a la posición home
+ * Body: { cameraId }
+ */
+app.post('/api/ptz/home', async (req, res) => {
+  try {
+    const { cameraId } = req.body;
+
+    if (!cameraId) {
+      return res.status(400).json({
+        error: 'Se requiere: cameraId'
+      });
+    }
+
+    const result = await ptzController.gotoHome(cameraId);
+
+    res.json(result);
+  } catch (error) {
+    console.error('[API] Error al ir a home:', error);
+    res.status(500).json({
+      error: 'Error al ir a home',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/ptz/presets/:cameraId
+ * Obtiene la lista de presets de una cámara
+ */
+app.get('/api/ptz/presets/:cameraId', async (req, res) => {
+  try {
+    const { cameraId } = req.params;
+
+    const result = await ptzController.getPresets(cameraId);
+
+    res.json(result);
+  } catch (error) {
+    console.error('[API] Error al obtener presets:', error);
+    res.status(500).json({
+      error: 'Error al obtener presets',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/ptz/preset/goto
+ * Va a una posición preset
+ * Body: { cameraId, presetToken }
+ */
+app.post('/api/ptz/preset/goto', async (req, res) => {
+  try {
+    const { cameraId, presetToken } = req.body;
+
+    if (!cameraId || !presetToken) {
+      return res.status(400).json({
+        error: 'Se requieren: cameraId, presetToken'
+      });
+    }
+
+    const result = await ptzController.gotoPreset(cameraId, presetToken);
+
+    res.json(result);
+  } catch (error) {
+    console.error('[API] Error al ir a preset:', error);
+    res.status(500).json({
+      error: 'Error al ir a preset',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/ptz/preset/set
+ * Guarda la posición actual como preset
+ * Body: { cameraId, presetName }
+ */
+app.post('/api/ptz/preset/set', async (req, res) => {
+  try {
+    const { cameraId, presetName } = req.body;
+
+    if (!cameraId || !presetName) {
+      return res.status(400).json({
+        error: 'Se requieren: cameraId, presetName'
+      });
+    }
+
+    const result = await ptzController.setPreset(cameraId, presetName);
+
+    res.json(result);
+  } catch (error) {
+    console.error('[API] Error al guardar preset:', error);
+    res.status(500).json({
+      error: 'Error al guardar preset',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/ptz/capabilities/:cameraId
+ * Obtiene las capacidades PTZ de una cámara
+ */
+app.get('/api/ptz/capabilities/:cameraId', (req, res) => {
+  try {
+    const { cameraId } = req.params;
+
+    const capabilities = ptzController.getCapabilities(cameraId);
+
+    if (!capabilities) {
+      return res.status(404).json({
+        error: 'PTZ no inicializado para esta cámara'
+      });
+    }
+
+    res.json({
+      success: true,
+      capabilities
+    });
+  } catch (error) {
+    console.error('[API] Error al obtener capacidades:', error);
+    res.status(500).json({
+      error: 'Error al obtener capacidades',
+      message: error.message
+    });
+  }
+});
+
 // Manejo de shutdown graceful
 process.on('SIGTERM', async () => {
   console.log('\n[Server] SIGTERM recibido, cerrando servidor...');
@@ -360,6 +578,15 @@ app.listen(PORT, () => {
   console.log(`   POST   /api/discovery/test      - Probar conexión a cámara`);
   console.log(`   POST   /api/discovery/rtsp-urls - Generar URLs RTSP`);
   console.log(`   DELETE /api/discovery/clear     - Limpiar dispositivos`);
+  console.log('');
+  console.log('🎮 Endpoints - PTZ Control:');
+  console.log(`   POST   /api/ptz/init            - Inicializar PTZ`);
+  console.log(`   POST   /api/ptz/move            - Mover cámara`);
+  console.log(`   POST   /api/ptz/stop            - Detener movimiento`);
+  console.log(`   POST   /api/ptz/home            - Ir a posición home`);
+  console.log(`   GET    /api/ptz/presets/:id     - Obtener presets`);
+  console.log(`   POST   /api/ptz/preset/goto     - Ir a preset`);
+  console.log(`   POST   /api/ptz/preset/set      - Guardar preset`);
   console.log('');
   console.log('🎬 Directorio de streams: ./server/streams/');
   console.log('');

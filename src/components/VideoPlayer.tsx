@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import type { Camera } from '../types';
-import { Video, VideoOff, Trash2 } from 'lucide-react';
+import { Video, VideoOff, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { PTZControls } from './PTZControls';
 
 interface VideoPlayerProps {
   camera: Camera;
@@ -13,6 +14,7 @@ export function VideoPlayer({ camera, onRemove }: VideoPlayerProps) {
   const hlsRef = useRef<Hls | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showPTZ, setShowPTZ] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -205,6 +207,30 @@ export function VideoPlayer({ camera, onRemove }: VideoPlayerProps) {
       <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded text-xs text-white uppercase">
         {camera.type}
       </div>
+
+      {/* PTZ Toggle Button */}
+      {camera.onvifAddress && camera.username && camera.password && (
+        <button
+          onClick={() => setShowPTZ(!showPTZ)}
+          className="absolute bottom-2 right-2 px-3 py-1 bg-blue-600/90 hover:bg-blue-700 rounded text-xs text-white flex items-center gap-1 transition-colors"
+          title={showPTZ ? 'Ocultar controles PTZ' : 'Mostrar controles PTZ'}
+        >
+          🎮 PTZ
+          {showPTZ ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
+      )}
+
+      {/* PTZ Controls */}
+      {showPTZ && camera.onvifAddress && camera.username && camera.password && (
+        <div className="mt-2">
+          <PTZControls
+            cameraId={camera.id}
+            onvifAddress={camera.onvifAddress}
+            username={camera.username}
+            password={camera.password}
+          />
+        </div>
+      )}
     </div>
   );
 }
