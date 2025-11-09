@@ -10,6 +10,7 @@ interface VideoPlayerProps {
 
 export function VideoPlayer({ camera, onRemove }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,17 +27,48 @@ export function VideoPlayer({ camera, onRemove }: VideoPlayerProps) {
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
+          // Configuración para mantener el stream en vivo
+          liveSyncDuration: 0.5, // Sincronizar muy cerca del live edge
+          liveMaxLatencyDuration: 3, // Latencia máxima antes de saltar al live
+          liveDurationInfinity: true, // Permitir streams infinitos
+          highBufferWatchdogPeriod: 1, // Verificar buffer frecuentemente
+          // Limitar buffer histórico
+          backBufferLength: 10, // Solo mantener 10 segundos atrás
+          maxBufferLength: 10, // Buffer máximo de 10 segundos
+          maxMaxBufferLength: 15, // Buffer máximo absoluto
         });
+
+        hlsRef.current = hls;
 
         hls.loadSource(camera.url);
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          video.play().catch(err => {
+          // Saltar al final del stream al iniciar
+          const seekToLive = () => {
+            if (video.duration && isFinite(video.duration)) {
+              video.currentTime = video.duration;
+            }
+          };
+
+          video.play().then(() => {
+            seekToLive();
+          }).catch(err => {
             console.error('Error playing video:', err);
             setError('Error al reproducir el video');
           });
           setIsLoading(false);
+        });
+
+        // Cuando se actualiza el manifest, saltar al live edge
+        hls.on(Hls.Events.LEVEL_UPDATED, () => {
+          if (video && hls.liveSyncPosition !== undefined) {
+            const latency = hls.liveSyncPosition - video.currentTime;
+            // Si estamos más de 3 segundos atrás, saltar al live
+            if (latency > 3) {
+              video.currentTime = hls.liveSyncPosition;
+            }
+          }
         });
 
         hls.on(Hls.Events.ERROR, (_, data) => {
@@ -46,19 +78,57 @@ export function VideoPlayer({ camera, onRemove }: VideoPlayerProps) {
           }
         });
 
+        // Intervalo para mantener sincronizado con el live edge
+        const liveEdgeInterval = setInterval(() => {
+          if (video && !video.paused && hls.liveSyncPosition !== undefined) {
+            const latency = hls.liveSyncPosition - video.currentTime;
+            // Si estamos más de 5 segundos atrás del live, saltar
+            if (latency > 5) {
+              console.log(`[VideoPlayer] Latency too high (${latency.toFixed(2)}s), jumping to live edge`);
+              video.currentTime = hls.liveSyncPosition;
+            }
+          }
+        }, 2000); // Verificar cada 2 segundos
+
         return () => {
+          clearInterval(liveEdgeInterval);
           hls.destroy();
+          hlsRef.current = null;
         };
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Safari native HLS support
         video.src = camera.url;
+
+        const seekToLive = () => {
+          if (video.duration && isFinite(video.duration)) {
+            video.currentTime = video.duration;
+          }
+        };
+
         video.addEventListener('loadedmetadata', () => {
-          video.play().catch(err => {
+          video.play().then(() => {
+            seekToLive();
+          }).catch(err => {
             console.error('Error playing video:', err);
             setError('Error al reproducir el video');
           });
           setIsLoading(false);
         });
+
+        // Intervalo para mantener en el live edge (Safari)
+        const liveEdgeInterval = setInterval(() => {
+          if (video && !video.paused && video.duration && isFinite(video.duration)) {
+            const latency = video.duration - video.currentTime;
+            if (latency > 5) {
+              console.log(`[VideoPlayer] Safari: Latency too high (${latency.toFixed(2)}s), jumping to live edge`);
+              video.currentTime = video.duration;
+            }
+          }
+        }, 2000);
+
+        return () => {
+          clearInterval(liveEdgeInterval);
+        };
       } else {
         setError('HLS no soportado en este navegador');
         setIsLoading(false);
