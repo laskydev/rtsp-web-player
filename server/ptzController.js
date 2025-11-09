@@ -150,11 +150,17 @@ class PTZController {
       }
 
       // Ejecutar movimiento continuo
+      // Asegurar que todos los valores sean floats válidos
       await device.services.ptz.continuousMove({
         ProfileToken: profile.token,
         Velocity: {
-          PanTilt: { x: velocity.x, y: velocity.y },
-          Zoom: { x: velocity.zoom }
+          PanTilt: {
+            x: parseFloat(velocity.x.toFixed(2)),
+            y: parseFloat(velocity.y.toFixed(2))
+          },
+          Zoom: {
+            x: parseFloat(velocity.zoom.toFixed(2))
+          }
         }
       });
 
