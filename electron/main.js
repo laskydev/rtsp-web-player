@@ -3,12 +3,14 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import NativePlayerManager from './nativePlayer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow;
 let backendProcess;
+let nativePlayerManager;
 const isDev = process.env.NODE_ENV === 'development';
 const BACKEND_PORT = 3001;
 const FRONTEND_PORT = 5173;
@@ -135,6 +137,39 @@ ipcMain.handle('get-backend-status', async () => {
   };
 });
 
+// Native Player IPC Handlers
+ipcMain.handle('open-native-player', async (event, { streamId, cameraName, rtspUrl }) => {
+  try {
+    if (!nativePlayerManager) {
+      nativePlayerManager = new NativePlayerManager();
+    }
+    await nativePlayerManager.openNativePlayer(streamId, cameraName, rtspUrl);
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening native player:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('close-native-player', async (event, { streamId }) => {
+  try {
+    if (nativePlayerManager) {
+      nativePlayerManager.closePlayer(streamId);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Error closing native player:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-active-players', async () => {
+  if (!nativePlayerManager) {
+    return [];
+  }
+  return nativePlayerManager.getActivePlayers();
+});
+
 // App lifecycle
 app.whenReady().then(async () => {
   try {
@@ -158,6 +193,9 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  if (nativePlayerManager) {
+    nativePlayerManager.closeAllPlayers();
+  }
   stopBackend();
   if (process.platform !== 'darwin') {
     app.quit();
@@ -165,10 +203,16 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  if (nativePlayerManager) {
+    nativePlayerManager.closeAllPlayers();
+  }
   stopBackend();
 });
 
 app.on('will-quit', () => {
+  if (nativePlayerManager) {
+    nativePlayerManager.closeAllPlayers();
+  }
   stopBackend();
 });
 

@@ -137,12 +137,13 @@ export default function CameraDiscovery({ onAddCamera, onClose }: CameraDiscover
       const data = await response.json();
 
       if (data.success) {
-        // Agregar al frontend
+        // Agregar al frontend con URL RTSP original guardada
         const newCamera: Camera = {
           id: device.id,
           name: device.name,
           url: data.stream.hlsUrl,
-          type: 'hls'
+          type: 'hls',
+          rtspUrl: rtspUrl // Guardar URL RTSP original para reproductor nativo
         };
 
         onAddCamera(newCamera);
