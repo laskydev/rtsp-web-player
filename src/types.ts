@@ -3,6 +3,7 @@ export interface Camera {
   name: string;
   url: string;
   type: 'rtsp' | 'hls' | 'mjpeg' | 'webrtc';
+  rtspUrl?: string; // URL RTSP original (para reproductor nativo en Electron)
 }
 
 export interface CameraGridLayout {

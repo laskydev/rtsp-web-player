@@ -58,11 +58,12 @@ export function AddCameraForm({ onAdd }: AddCameraFormProps) {
         const data = await response.json();
         console.log('Stream convertido exitosamente:', data);
 
-        // Agregar la cámara con la URL HLS convertida
+        // Agregar la cámara con la URL HLS convertida Y la URL RTSP original
         onAdd({
           name: trimmedName,
           url: data.stream.hlsUrl,
           type: 'hls',
+          rtspUrl: trimmedUrl, // Guardar URL RTSP original para reproductor nativo
         });
 
         alert(`✅ Cámara "${trimmedName}" agregada y conversión RTSP iniciada correctamente`);
@@ -77,7 +78,14 @@ export function AddCameraForm({ onAdd }: AddCameraFormProps) {
       }
     } else {
       // Para otros tipos de streams o si la conversión automática está deshabilitada
-      onAdd({ name: trimmedName, url: trimmedUrl, type });
+      // Si es RTSP también guardarlo para el reproductor nativo
+      const cameraData = {
+        name: trimmedName,
+        url: trimmedUrl,
+        type,
+        ...(trimmedUrl.startsWith('rtsp://') ? { rtspUrl: trimmedUrl } : {})
+      };
+      onAdd(cameraData);
     }
 
     // Reset form

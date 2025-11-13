@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import type { Camera } from '../types';
-import { Video, VideoOff, Trash2 } from 'lucide-react';
+import { Video, VideoOff, Trash2, Play } from 'lucide-react';
+import { isElectron, openNativePlayer, closeNativePlayer } from '../config';
 
 interface VideoPlayerProps {
   camera: Camera;
@@ -12,10 +13,60 @@ export function VideoPlayer({ camera, onRemove }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isNativePlayerOpen, setIsNativePlayerOpen] = useState(false);
+
+  const handleOpenNative = async () => {
+    try {
+      // Usar la URL RTSP original si existe, de lo contrario usar la URL normal
+      let rtspUrl = camera.rtspUrl || camera.url;
+
+      // Si no hay URL RTSP y la URL actual es HLS, mostrar error
+      if (!camera.rtspUrl && camera.url.includes('/streams/')) {
+        alert('Esta cámara no tiene URL RTSP guardada. Por favor, vuelve a agregar la cámara con la URL RTSP original.');
+        return;
+      }
+
+      const result = await openNativePlayer(camera.id, camera.name, rtspUrl);
+
+      if (result.success) {
+        setIsNativePlayerOpen(true);
+      } else {
+        alert(`Error al abrir reproductor nativo: ${result.error}\n\nAsegúrate de tener mpv instalado en tu sistema.`);
+      }
+    } catch (error) {
+      console.error('Error opening native player:', error);
+      alert('Error al abrir reproductor nativo. Asegúrate de tener mpv instalado.');
+    }
+  };
+
+  const handleCloseNative = async () => {
+    try {
+      await closeNativePlayer(camera.id);
+      setIsNativePlayerOpen(false);
+    } catch (error) {
+      console.error('Error closing native player:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Cleanup: cerrar reproductor nativo cuando se desmonta el componente
+    return () => {
+      if (isNativePlayerOpen) {
+        closeNativePlayer(camera.id).catch(console.error);
+      }
+    };
+  }, [camera.id, isNativePlayerOpen]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+
+    // En Electron, no cargar el video web automáticamente
+    // El usuario puede elegir usar el reproductor nativo
+    if (isElectron) {
+      setIsLoading(false);
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -141,30 +192,71 @@ export function VideoPlayer({ camera, onRemove }: VideoPlayerProps) {
       </div>
 
       {/* Video */}
-      <div className="aspect-video bg-gray-800 flex items-center justify-center">
-        {error ? (
-          <div className="flex flex-col items-center gap-2 text-red-400">
-            <VideoOff className="w-12 h-12" />
-            <p className="text-sm">{error}</p>
-            <p className="text-xs text-gray-400">Verifica la URL y el tipo de stream</p>
+      <div className="aspect-video bg-gray-800 flex items-center justify-center relative">
+        {isElectron ? (
+          // Interfaz para Electron con reproductor nativo
+          <div className="flex flex-col items-center gap-4 p-6">
+            {isNativePlayerOpen ? (
+              <>
+                <div className="flex items-center gap-3 text-green-400">
+                  <Play className="w-8 h-8" />
+                  <div className="text-center">
+                    <p className="text-lg font-semibold">Reproductor Nativo Activo</p>
+                    <p className="text-sm text-gray-300">La cámara se está reproduciendo en mpv</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCloseNative}
+                  className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-white font-medium"
+                >
+                  Cerrar Reproductor
+                </button>
+              </>
+            ) : (
+              <>
+                <Video className="w-16 h-16 text-blue-400 mb-2" />
+                <p className="text-white text-lg font-semibold mb-2">{camera.name}</p>
+                <button
+                  onClick={handleOpenNative}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-white font-medium flex items-center gap-2"
+                >
+                  <Play className="w-5 h-5" />
+                  Abrir en Reproductor Nativo (mpv)
+                </button>
+                <p className="text-xs text-gray-400 text-center max-w-xs mt-2">
+                  El reproductor nativo ofrece mejor performance y menor latencia usando aceleración por hardware
+                </p>
+              </>
+            )}
           </div>
         ) : (
+          // Interfaz web normal
           <>
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-sm text-gray-400">Cargando stream...</p>
-                </div>
+            {error ? (
+              <div className="flex flex-col items-center gap-2 text-red-400">
+                <VideoOff className="w-12 h-12" />
+                <p className="text-sm">{error}</p>
+                <p className="text-xs text-gray-400">Verifica la URL y el tipo de stream</p>
               </div>
+            ) : (
+              <>
+                {isLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-sm text-gray-400">Cargando stream...</p>
+                    </div>
+                  </div>
+                )}
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-contain"
+                  controls
+                  muted
+                  playsInline
+                />
+              </>
             )}
-            <video
-              ref={videoRef}
-              className="w-full h-full object-contain"
-              controls
-              muted
-              playsInline
-            />
           </>
         )}
       </div>

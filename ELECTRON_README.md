@@ -5,7 +5,9 @@ Esta es la versión de escritorio del RTSP Web Player construida con Electron.js
 ## ✨ Características
 
 - **Backend Automático**: El servidor backend se inicia automáticamente al abrir la aplicación
-- **Reproductor Mejorado**: Configuración optimizada de HLS.js para mayor estabilidad
+- **Reproductor Nativo con mpv**: Reproduce RTSP directamente con aceleración por hardware
+- **Sin Conversión HLS**: Reproduce RTSP sin conversión intermedia (menor latencia, mejor performance)
+- **Siempre en Vivo**: El reproductor nativo muestra siempre el video en tiempo real, sin cache
 - **Empaquetado Nativo**: Distribución como aplicación de escritorio para Windows, macOS y Linux
 - **Sin Configuración Manual**: No necesitas levantar el backend manualmente
 
@@ -14,9 +16,30 @@ Esta es la versión de escritorio del RTSP Web Player construida con Electron.js
 Antes de usar la aplicación, asegúrate de tener instalado:
 
 1. **Node.js** (versión 18 o superior)
-2. **FFmpeg** (requerido para conversión RTSP → HLS)
+2. **mpv** (reproductor nativo - REQUERIDO para reproducción de cámaras)
+3. **FFmpeg** (opcional - solo si quieres conversión RTSP → HLS para modo web)
 
-### Instalar FFmpeg:
+### Instalar mpv:
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install mpv
+```
+
+**macOS (con Homebrew):**
+```bash
+brew install mpv
+```
+
+**Windows:**
+- Descarga desde: https://mpv.io/installation/
+- Instala usando Chocolatey: `choco install mpv`
+- O descarga el instalador y agrega mpv al PATH del sistema
+
+### Instalar FFmpeg (Opcional):
+
+Solo necesario si quieres usar el modo web o conversión HLS.
 
 **Linux (Ubuntu/Debian):**
 ```bash
@@ -92,9 +115,18 @@ Los archivos de distribución se generarán en la carpeta `release/` con los sig
 3. **Agrega cámaras**:
    - Haz clic en el botón "+" en la esquina inferior derecha
    - Ingresa el nombre y la URL RTSP de tu cámara
-   - Si es una URL RTSP, se convertirá automáticamente a HLS
+   - La URL RTSP se guardará para usarla con el reproductor nativo
 
-4. **Descubre cámaras**:
+4. **Reproduce con el Reproductor Nativo (RECOMENDADO)**:
+   - Una vez agregada la cámara, verás un botón "Abrir en Reproductor Nativo (mpv)"
+   - Haz clic y mpv se abrirá en una ventana separada
+   - **Ventajas**:
+     - ⚡ Menor latencia (sin conversión HLS intermedia)
+     - 🎮 Aceleración por hardware
+     - 📺 Siempre en vivo (sin cache de segmentos viejos)
+     - 💪 Mayor estabilidad y mejor performance
+
+5. **Descubre cámaras**:
    - Haz clic en "Descubrir Cámaras" en la barra superior
    - La aplicación escaneará tu red local en busca de cámaras IP
 
@@ -115,30 +147,38 @@ El backend se configura en `server/index.js`:
 
 ## 🐛 Solución de Problemas
 
+### mpv no encontrado
+
+**Síntoma**: Al hacer clic en "Abrir en Reproductor Nativo" aparece un error
+
+**Solución**:
+1. Verifica la instalación: `mpv --version`
+2. Asegúrate de que mpv esté en el PATH del sistema:
+   - Linux/macOS: Debería estar en `/usr/bin/mpv` o `/usr/local/bin/mpv`
+   - Windows: Agrega la carpeta de mpv al PATH
+3. Reinicia la aplicación después de instalar mpv
+
+### La cámara muestra video viejo/no actualizado
+
+**Solución**: Este problema se ha resuelto con el reproductor nativo mpv, que:
+- Reproduce directamente desde RTSP sin cache
+- Siempre muestra el video en vivo más reciente
+- No usa conversión HLS intermedia que pueda tener segmentos viejos
+
 ### La aplicación no inicia el backend
 
 1. Verifica que Node.js esté instalado: `node --version`
 2. Asegúrate de que las dependencias del servidor estén instaladas: `cd server && npm install`
 3. Revisa los logs en la consola de la aplicación
 
-### FFmpeg no encontrado
+### El reproductor nativo tiene latencia
 
-1. Verifica la instalación: `ffmpeg -version`
-2. Asegúrate de que FFmpeg esté en el PATH del sistema
-3. Reinicia la aplicación después de instalar FFmpeg
+El reproductor nativo mpv está configurado con perfil de baja latencia:
+- `--profile=low-latency`: Optimizado para streams en vivo
+- `--cache-secs=5`: Solo 5 segundos de buffer
+- `--untimed`: Sin sincronización temporal que añada retrasos
 
-### El video no se reproduce
-
-1. Verifica que la URL RTSP sea correcta
-2. Asegúrate de que la cámara sea accesible desde tu red
-3. Revisa que el backend esté corriendo (debería iniciarse automáticamente)
-4. Mira los logs en DevTools (F12 en modo desarrollo)
-
-### Problemas de red/conectividad
-
-- El reproductor ahora tiene recuperación automática de errores de red
-- Si un stream falla, HLS.js intentará reconectarse automáticamente
-- Para streams inestables, el buffer aumentado (30s) ayudará a mantener la reproducción
+Si aún hay latencia, puede ser de la cámara misma, no del reproductor.
 
 ## 🏗️ Arquitectura
 

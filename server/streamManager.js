@@ -32,10 +32,18 @@ class StreamManager {
 
     const streamDir = path.join(this.streamsDir, streamId);
 
-    // Crear directorio para este stream
-    if (!fs.existsSync(streamDir)) {
-      fs.mkdirSync(streamDir, { recursive: true });
+    // LIMPIAR completamente el directorio si existe para evitar segmentos viejos
+    if (fs.existsSync(streamDir)) {
+      try {
+        fs.rmSync(streamDir, { recursive: true, force: true });
+        console.log(`[StreamManager] Directorio limpiado: ${streamDir}`);
+      } catch (error) {
+        console.error(`[StreamManager] Error al limpiar directorio:`, error);
+      }
     }
+
+    // Crear directorio limpio para este stream
+    fs.mkdirSync(streamDir, { recursive: true });
 
     const outputPath = path.join(streamDir, 'index.m3u8');
 

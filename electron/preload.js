@@ -9,6 +9,16 @@ contextBridge.exposeInMainWorld('electron', {
   getBackendStatus: async () => {
     return await ipcRenderer.invoke('get-backend-status');
   },
+  // Native Player API
+  openNativePlayer: async (streamId, cameraName, rtspUrl) => {
+    return await ipcRenderer.invoke('open-native-player', { streamId, cameraName, rtspUrl });
+  },
+  closeNativePlayer: async (streamId) => {
+    return await ipcRenderer.invoke('close-native-player', { streamId });
+  },
+  getActivePlayers: async () => {
+    return await ipcRenderer.invoke('get-active-players');
+  },
   isElectron: true,
   platform: process.platform
 });
